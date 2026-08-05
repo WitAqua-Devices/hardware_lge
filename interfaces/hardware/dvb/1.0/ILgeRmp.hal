@@ -1,0 +1,58 @@
+/*
+ * SPDX-FileCopyrightText: 2026 The LineageOS Project
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+package vendor.lge.hardware.dvb@1.0;
+
+/*
+ * RMP - the conditional access side of the Japanese full-seg stack. It keeps
+ * the per-station contexts, runs EMM/ECM through the key ladder and holds the
+ * provisioning blobs. libmtv_servicejp.lge.so reaches it through the
+ * mbthal_dvbcas_* wrappers.
+ *
+ * Recovered the same way as ILgeDvb. Methods whose stock proxy takes a
+ * std::function are the ones that return more than one value, and the shape of
+ * that function gives the output list directly; the rest return a single
+ * int32_t, seen as the Parcel::readInt32 after the status.
+ */
+interface ILgeRmp {
+    init() generates (int32_t result);
+    deinit() generates (int32_t result);
+
+    /* How many station contexts the key ladder has room for, and how many
+     * are in use. */
+    get_max_num_station_ctx() generates (int32_t result, uint8_t max);
+    get_num_station_ctx() generates (int32_t result, uint8_t count);
+
+    allocate_station_ctx(uint16_t stationId) generates (int32_t result, uint32_t ctxId);
+    get_station_ctx(vec<uint8_t> key, uint8_t index) generates (int32_t result, vec<uint8_t> ctx);
+    free_station_ctx(vec<uint8_t> key, uint8_t index) generates (int32_t result);
+
+    allocate_kl_index(uint32_t type) generates (int32_t result, uint32_t index);
+    free_kl_index(uint32_t index) generates (int32_t result);
+
+    /* Drops the persisted station file. */
+    delete_stn_file() generates (int32_t result);
+
+    /* Device id as fused, and as rewritten by provisioning. */
+    get_original_device_id() generates (int32_t result, vec<uint8_t> id);
+    get_updated_device_id(uint32_t type) generates (int32_t result, vec<uint8_t> id);
+
+    /* Entitlement messages. EMM comes back with a status of its own plus the
+     * response blob; ECM only reports whether it was accepted. */
+    process_emm(uint32_t index, vec<uint8_t> emm)
+            generates (int32_t result, int32_t status, vec<uint8_t> response);
+    process_ecm(uint32_t index, vec<uint8_t> ecm) generates (int32_t result);
+
+    set_device_key(uint32_t index, uint16_t stationId, uint8_t type, vec<uint8_t> key)
+            generates (int32_t result);
+
+    /* Provisioning: the blob arrives either in the clear, wrapped in a CEK, or
+     * encrypted, and is committed or thrown away at the end. */
+    provision_unencrypted(vec<uint8_t> blob) generates (int32_t result);
+    provision_cek(vec<uint8_t> cek, vec<uint8_t> blob) generates (int32_t result);
+    provision_encrypted(vec<uint8_t> blob) generates (int32_t result);
+    provision_finalize() generates (int32_t result);
+    provision_delete() generates (int32_t result);
+};

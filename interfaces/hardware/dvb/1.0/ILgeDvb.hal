@@ -1,0 +1,55 @@
+/*
+ * SPDX-FileCopyrightText: 2026 The LineageOS Project
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+package vendor.lge.hardware.dvb@1.0;
+
+import ILgeDvbCallback;
+
+/*
+ * Demux side of the full-seg stack: PID filters, the DVR ring and the secure
+ * buffers the decoder reads from. libmtv_servicejp.lge.so drives it through the
+ * dvb_hal_* wrappers.
+ *
+ * Recovered from the stock vendor.lge.hardware.dvb@1.0.so the same way as
+ * ILgeMtv - see ../../mtv/1.0/ILgeMtv.hal for the method. In short: names and
+ * parameter types come from the mangled BpHwLgeDvb _hidl_* symbols, the
+ * declaration order (and therefore the transaction codes) from the order those
+ * symbols sit at in the library, and a single int32_t return - which the
+ * mangling cannot show - from the Parcel::readInt32 the proxy makes after the
+ * status. registerCallback is the one method with no such read, so it alone
+ * returns void.
+ *
+ * Parameter names are ours; the mangling does not carry them.
+ */
+interface ILgeDvb {
+    /* Brings the demux up. The two bytes are mode arguments passed through. */
+    init(uint8_t a, uint8_t b) generates (int32_t result);
+    exit() generates (int32_t result);
+
+    /* State of the DVR (recording) ring for the given index. */
+    getStatusDVR(int32_t index) generates (int32_t result);
+
+    /* Pushes a transport stream chunk into the DVR ring. */
+    writeTStoDVR(vec<uint8_t> data) generates (int32_t result);
+
+    /* PID filters for live viewing. */
+    addfilter(uint8_t type, uint32_t flags, uint16_t pid) generates (int32_t result);
+    deletefilter(uint8_t type, uint16_t pid) generates (int32_t result);
+
+    /* PID filters for recording. */
+    addRecfilter(uint32_t type, uint16_t pid, uint32_t a, uint32_t b) generates (int32_t result);
+    deleteRecfilter(uint16_t pid) generates (int32_t result);
+
+    /*
+     * Hands the decoder's secure buffers to the demux. The handle carries the
+     * ION fds; the rest is the buffer geometry.
+     */
+    setVideoSecurebuffers(handle buffers, int32_t count, int32_t size,
+            uint32_t flags, bool secure) generates (int32_t result);
+    reuseVideoSecurebuffer(int32_t index) generates (int32_t result);
+
+    /* Where filtered data and events come back. */
+    registerCallback(uint8_t type, ILgeDvbCallback callback);
+};
