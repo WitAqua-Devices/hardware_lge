@@ -1,0 +1,69 @@
+/*
+ * SPDX-FileCopyrightText: 2026 The LineageOS Project
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+package vendor.lge.hardware.mtv@1.0;
+
+/*
+ * Recovered from the stock vendor.lge.hardware.mtv@1.0.so shipped on joan
+ * (L-01K, android 9). That library is generated code built against HIDL
+ * internals - gBnConstructorMap and friends - which no longer exist, so it
+ * cannot be shipped as a prebuilt. The interface itself is small and uses only
+ * primitives, so it is rebuilt from source here and the stock HAL service and
+ * lgemtvserver link against the result.
+ *
+ * How the declaration was reconstructed:
+ *   - method names and parameter types come from the mangled BpHwLgeMtv
+ *     _hidl_* symbols
+ *   - the order - and therefore the transaction codes - comes from the order
+ *     those same symbols appear at in the library, since hidl-gen emits them in
+ *     declaration order
+ *   - every method returns int32_t. HIDL only uses a _cb parameter when more
+ *     than one value comes back, so a single primitive return is invisible in
+ *     the mangling; it shows up instead as the Parcel::readInt32 that each
+ *     BpHwLgeMtv method makes after reading the status, matched by a
+ *     Parcel::writeInt32 on the Bn side. Getting this wrong makes the server
+ *     abort in assertOk() the first time it is called, because a
+ *     Return<int32_t> is being read back as a Return<void>
+ *
+ * Parameter names are ours: the mangling does not carry them. Anything marked
+ * uncertain below could not be recovered and is a guess that has to hold up on
+ * the device.
+ */
+interface ILgeMtv {
+    /*
+     * Opens the tuner. The string is the device node the HAL should use, which
+     * on joan is /dev/broadcast_isdbt.
+     */
+    openDevice(uint8_t mode, string device) generates (int32_t result);
+
+    /* Powers the tuner up and down. */
+    on() generates (int32_t result);
+    off() generates (int32_t result);
+
+    /*
+     * Brings the demodulator up. The three bytes are the mode arguments the
+     * stock stack passes straight through to the driver.
+     */
+    init(uint8_t a, uint8_t b, uint8_t c) generates (int32_t result);
+    deinit() generates (int32_t result);
+
+    /* Tunes. The stock stack passes frequency, channel and segment type. */
+    setChannel(uint32_t frequency, uint32_t channel, uint32_t segment) generates (int32_t result);
+
+    /* Signal strength and lock state, as a vector of driver counters. */
+    getSignalInfo() generates (int32_t result, vec<uint32_t> info);
+
+    /* Channel/service description straight out of the driver. */
+    getChannelInfo() generates (int32_t result, uint32_t size, vec<uint8_t> info);
+
+    /* Pulls one chunk of transport stream. */
+    getTSData() generates (int32_t result, vec<uint8_t> data, uint32_t size, uint32_t remaining);
+
+    /* Aborts a blocking read. */
+    setUserStop(int32_t stop) generates (int32_t result);
+
+    reset() generates (int32_t result);
+    closeDevice() generates (int32_t result);
+};

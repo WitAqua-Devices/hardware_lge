@@ -1,0 +1,25 @@
+/*
+ * SPDX-FileCopyrightText: 2026 The LineageOS Project
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+package vendor.lge.hardware.dvb@1.0;
+
+/*
+ * What the demux calls back into. None of the three is oneway: the stock proxy
+ * reads a status back off the parcel for each, so they are plain blocking void
+ * methods.
+ */
+interface ILgeDvbCallback {
+    /* One section or PES chunk off a filter. */
+    onData(uint8_t type, uint16_t pid, vec<uint8_t> data);
+
+    /*
+     * Same, but the payload stayed in a secure buffer - only the index and
+     * size come across, not the bytes.
+     */
+    onSecureData(uint8_t type, uint8_t index, uint32_t size, uint64_t timestamp);
+
+    /* Demux state changes: overflow, lock lost and the like. */
+    onEvent(uint8_t type, uint32_t event, uint32_t arg);
+};
