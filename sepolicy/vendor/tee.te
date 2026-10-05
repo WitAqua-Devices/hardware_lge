@@ -1,0 +1,3 @@
+rw_dir_file(tee, persist_lg_data_file)
+rw_dir_file(tee, persist_lg_fingerprint_file)
+rw_dir_file(tee, qseesfs_data_file)

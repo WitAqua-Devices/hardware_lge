@@ -4,12 +4,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#define LOG_TAG "android.hardware.radio@1.4-service.lge"
+#define LOG_TAG "android.hardware.radio@1.5-service.lge"
 
 #include "Radio.h"
-#include "Helpers.h"
-#include <vector>
 #include <string>
+#include <vector>
+#include "Helpers.h"
 
 #include <android-base/logging.h>
 
@@ -46,12 +46,20 @@
         }                                               \
     } while (0)
 
-#define MAYBE_WRAP_V1_4_CALL(method, ...)                    \
-    do {                                                     \
-        auto realRadio_V1_4 = getRealRadio_V1_4();           \
-        if (realRadio_V1_4 != nullptr) {                     \
-            return realRadio_V1_4->method(__VA_ARGS__);      \
-        }                                                    \
+#define MAYBE_WRAP_V1_4_CALL(method, ...)               \
+    do {                                                \
+        auto realRadio_V1_4 = getRealRadio_V1_4();      \
+        if (realRadio_V1_4 != nullptr) {                \
+            return realRadio_V1_4->method(__VA_ARGS__); \
+        }                                               \
+    } while (0)
+
+#define MAYBE_WRAP_V1_5_CALL(method, ...)               \
+    do {                                                \
+        auto realRadio_V1_5 = getRealRadio_V1_5();      \
+        if (realRadio_V1_5 != nullptr) {                \
+            return realRadio_V1_5->method(__VA_ARGS__); \
+        }                                               \
     } while (0)
 
 namespace android::hardware::radio::implementation {
@@ -63,14 +71,14 @@ Radio::Radio(sp<V1_0::IRadio> realRadio, int slotId) : mRealRadio(realRadio) {
 // Methods from ::android::hardware::radio::V1_0::IRadio follow.
 Return<void> Radio::setResponseFunctions(const sp<V1_0::IRadioResponse>& radioResponse,
                                          const sp<V1_0::IRadioIndication>& radioIndication) {
-    mRadioResponse->mRealRadioResponse = V1_4::IRadioResponse::castFrom(radioResponse);
-    mRadioIndication->mRealRadioIndication = V1_4::IRadioIndication::castFrom(radioIndication);
+    mRadioResponse->mRealRadioResponse = V1_5::IRadioResponse::castFrom(radioResponse);
+    mRadioIndication->mRealRadioIndication = V1_5::IRadioIndication::castFrom(radioIndication);
 
     // We also need to do some funny for LgeRadio here.
     mLgeRadioResponse = new LgeRadioResponseV2(
-        V1_4::IRadioResponse::castFrom(radioResponse).withDefault(nullptr));
+            V1_4::IRadioResponse::castFrom(radioResponse).withDefault(nullptr));
     mLgeRadioIndication = new LgeRadioIndicationV2(
-        V1_4::IRadioIndication::castFrom(radioIndication).withDefault(nullptr));
+            V1_4::IRadioIndication::castFrom(radioIndication).withDefault(nullptr));
     auto svc = ILgeRadio::getService("lge_radio" + (mSlotId != 1 ? std::to_string(mSlotId) : ""));
     svc->setResponseFunctions(mLgeRadioResponse, mLgeRadioIndication);
 
@@ -637,8 +645,8 @@ Return<void> Radio::setCarrierInfoForImsiEncryption(
 Return<void> Radio::setSimCardPower_1_1(int32_t serial, V1_1::CardPowerState powerUp) {
     MAYBE_WRAP_V1_1_CALL(setSimCardPower_1_1, serial, powerUp);
 
-    if(powerUp != V1_1::CardPowerState::POWER_UP_PASS_THROUGH)
-        WRAP_V1_0_CALL(setSimCardPower, serial, (bool) powerUp);
+    if (powerUp != V1_1::CardPowerState::POWER_UP_PASS_THROUGH)
+        WRAP_V1_0_CALL(setSimCardPower, serial, (bool)powerUp);
 
     return Void();
 }
@@ -751,17 +759,18 @@ Return<void> Radio::getModemStackStatus(int32_t serial) {
     return Void();
 }
 
-hidl_string getProtocolStringFromInt(const V1_4::PdpProtocolType protocol){
-    const hidl_string protocolStrings[] = {hidl_string("IP"), hidl_string("IPV6"), hidl_string("IPV4V6"), hidl_string("PPP"),
-        hidl_string("NON-IP"), hidl_string("UNSTRUCTURED")};
+hidl_string getProtocolStringFromInt(const V1_4::PdpProtocolType protocol) {
+    const hidl_string protocolStrings[] = {hidl_string("IP"),     hidl_string("IPV6"),
+                                           hidl_string("IPV4V6"), hidl_string("PPP"),
+                                           hidl_string("NON-IP"), hidl_string("UNSTRUCTURED")};
 
-    if(protocol >= V1_4::PdpProtocolType::IP && protocol <= V1_4::PdpProtocolType::UNSTRUCTURED)
+    if (protocol >= V1_4::PdpProtocolType::IP && protocol <= V1_4::PdpProtocolType::UNSTRUCTURED)
         return protocolStrings[(int)protocol];
 
     return hidl_string("");
 }
 
-V1_0::DataProfileInfo Get1_0DataProfileInfo(const V1_4::DataProfileInfo& dataProfileInfo){
+V1_0::DataProfileInfo Get1_0DataProfileInfo(const V1_4::DataProfileInfo& dataProfileInfo) {
     V1_0::DataProfileInfo legacyProfile = {};
     legacyProfile.profileId = dataProfileInfo.profileId;
     legacyProfile.apn = dataProfileInfo.apn;
@@ -792,11 +801,13 @@ Return<void> Radio::setupDataCall_1_4(int32_t serial, V1_4::AccessNetwork access
     MAYBE_WRAP_V1_4_CALL(setupDataCall_1_4, serial, accessNetwork, dataProfileInfo, roamingAllowed,
                          reason, addresses, dnses);
 
-    MAYBE_WRAP_V1_2_CALL(setupDataCall_1_2, serial, (V1_2::AccessNetwork) accessNetwork, Get1_0DataProfileInfo(dataProfileInfo),
-                         dataProfileInfo.persistent, roamingAllowed, mRadioResponse->mDataRoaming, reason, addresses, dnses);
+    MAYBE_WRAP_V1_2_CALL(setupDataCall_1_2, serial, (V1_2::AccessNetwork)accessNetwork,
+                         Get1_0DataProfileInfo(dataProfileInfo), dataProfileInfo.persistent,
+                         roamingAllowed, mRadioResponse->mDataRoaming, reason, addresses, dnses);
 
-    WRAP_V1_0_CALL(setupDataCall, serial, mRadioResponse->mRat, Get1_0DataProfileInfo(dataProfileInfo),
-                         dataProfileInfo.persistent, roamingAllowed, mRadioResponse->mDataRoaming);
+    WRAP_V1_0_CALL(setupDataCall, serial, mRadioResponse->mRat,
+                   Get1_0DataProfileInfo(dataProfileInfo), dataProfileInfo.persistent,
+                   roamingAllowed, mRadioResponse->mDataRoaming);
 }
 
 Return<void> Radio::setInitialAttachApn_1_4(int32_t serial,
@@ -804,7 +815,7 @@ Return<void> Radio::setInitialAttachApn_1_4(int32_t serial,
     MAYBE_WRAP_V1_4_CALL(setInitialAttachApn_1_4, serial, dataProfileInfo);
 
     WRAP_V1_0_CALL(setInitialAttachApn, serial, Get1_0DataProfileInfo(dataProfileInfo),
-                         dataProfileInfo.persistent, mRadioResponse->mDataRoaming);
+                   dataProfileInfo.persistent, mRadioResponse->mDataRoaming);
 }
 
 Return<void> Radio::setDataProfile_1_4(int32_t serial,
@@ -812,13 +823,13 @@ Return<void> Radio::setDataProfile_1_4(int32_t serial,
     MAYBE_WRAP_V1_4_CALL(setDataProfile_1_4, serial, profiles);
 
     std::vector<V1_0::DataProfileInfo> legacyProfiles;
-    for(const V1_4::DataProfileInfo &profile : profiles){
-        if(profile.persistent)
-            legacyProfiles.push_back(Get1_0DataProfileInfo(profile));
+    for (const V1_4::DataProfileInfo& profile : profiles) {
+        if (profile.persistent) legacyProfiles.push_back(Get1_0DataProfileInfo(profile));
     }
 
-    if(legacyProfiles.size())
-        WRAP_V1_0_CALL(setDataProfile, serial, hidl_vec(legacyProfiles), mRadioResponse->mDataRoaming);
+    if (legacyProfiles.size())
+        WRAP_V1_0_CALL(setDataProfile, serial, hidl_vec(legacyProfiles),
+                       mRadioResponse->mDataRoaming);
 
     return Void();
 }
@@ -859,19 +870,14 @@ Return<void> Radio::setPreferredNetworkTypeBitmap(
         int32_t serial, hidl_bitfield<V1_4::RadioAccessFamily> networkTypeBitmap) {
     MAYBE_WRAP_V1_4_CALL(setPreferredNetworkTypeBitmap, serial, networkTypeBitmap);
 
-    if(networkTypeBitmap & GSMBITS)
-        networkTypeBitmap |= GSMBITS;
-    if(networkTypeBitmap & CDMABITS)
-        networkTypeBitmap |= CDMABITS;
-    if(networkTypeBitmap & EVDOBITS)
-        networkTypeBitmap |= EVDOBITS;
-    if(networkTypeBitmap & WCDMABITS)
-        networkTypeBitmap |= WCDMABITS;
-    if(networkTypeBitmap & LTEBITS)
-        networkTypeBitmap |= LTEBITS;
+    if (networkTypeBitmap & GSMBITS) networkTypeBitmap |= GSMBITS;
+    if (networkTypeBitmap & CDMABITS) networkTypeBitmap |= CDMABITS;
+    if (networkTypeBitmap & EVDOBITS) networkTypeBitmap |= EVDOBITS;
+    if (networkTypeBitmap & WCDMABITS) networkTypeBitmap |= WCDMABITS;
+    if (networkTypeBitmap & LTEBITS) networkTypeBitmap |= LTEBITS;
 
     V1_0::PreferredNetworkType nwType;
-    switch(networkTypeBitmap){
+    switch (networkTypeBitmap) {
         case (GSMBITS | WCDMABITS):
             nwType = V1_0::PreferredNetworkType::GSM_WCDMA_AUTO;
             break;
@@ -950,14 +956,14 @@ Return<void> Radio::setAllowedCarriers_1_4(int32_t serial,
     MAYBE_WRAP_V1_4_CALL(setAllowedCarriers_1_4, serial, carriers, multiSimPolicy);
 
     bool isAllCarriersAllowed = carriers.allowedCarriers.size() == 0 &&
-        carriers.excludedCarriers.size() == 0 && !carriers.allowedCarriersPrioritized;
+                                carriers.excludedCarriers.size() == 0 &&
+                                !carriers.allowedCarriersPrioritized;
 
-    bool supported = (isAllCarriersAllowed
-        || (carriers.excludedCarriers.size() == 0
-        && carriers.allowedCarriersPrioritized))
-        && multiSimPolicy == V1_4::SimLockMultiSimPolicy::NO_MULTISIM_POLICY;
+    bool supported = (isAllCarriersAllowed || (carriers.excludedCarriers.size() == 0 &&
+                                               carriers.allowedCarriersPrioritized)) &&
+                     multiSimPolicy == V1_4::SimLockMultiSimPolicy::NO_MULTISIM_POLICY;
 
-    if(supported){
+    if (supported) {
         V1_0::CarrierRestrictions legacyCarriers = {};
         legacyCarriers.allowedCarriers = carriers.allowedCarriers;
         WRAP_V1_0_CALL(setAllowedCarriers, serial, isAllCarriersAllowed, legacyCarriers);
@@ -976,6 +982,136 @@ Return<void> Radio::getSignalStrength_1_4(int32_t serial) {
     WRAP_V1_0_CALL(getSignalStrength, serial);
 }
 
+// Methods from ::android::hardware::radio::V1_5::IRadio follow.
+V1_0::RadioResponseInfo UnsupportedResponse(int32_t serial) {
+    return {V1_0::RadioResponseType::SOLICITED, serial, V1_0::RadioError::REQUEST_NOT_SUPPORTED};
+}
+
+Return<void> Radio::setSignalStrengthReportingCriteria_1_5(
+        int32_t serial, const V1_5::SignalThresholdInfo& signalThresholdInfo,
+        V1_5::AccessNetwork accessNetwork) {
+    MAYBE_WRAP_V1_5_CALL(setSignalStrengthReportingCriteria_1_5, serial, signalThresholdInfo,
+                         accessNetwork);
+    return mRadioResponse->mRealRadioResponse->setSignalStrengthReportingCriteriaResponse_1_5(
+            UnsupportedResponse(serial));
+}
+
+Return<void> Radio::setLinkCapacityReportingCriteria_1_5(
+        int32_t serial, int32_t hysteresisMs, int32_t hysteresisDlKbps, int32_t hysteresisUlKbps,
+        const hidl_vec<int32_t>& thresholdsDownlinkKbps,
+        const hidl_vec<int32_t>& thresholdsUplinkKbps, V1_5::AccessNetwork accessNetwork) {
+    MAYBE_WRAP_V1_5_CALL(setLinkCapacityReportingCriteria_1_5, serial, hysteresisMs,
+                         hysteresisDlKbps, hysteresisUlKbps, thresholdsDownlinkKbps,
+                         thresholdsUplinkKbps, accessNetwork);
+    return mRadioResponse->mRealRadioResponse->setLinkCapacityReportingCriteriaResponse_1_5(
+            UnsupportedResponse(serial));
+}
+
+Return<void> Radio::enableUiccApplications(int32_t serial, bool enable) {
+    MAYBE_WRAP_V1_5_CALL(enableUiccApplications, serial, enable);
+    return mRadioResponse->mRealRadioResponse->enableUiccApplicationsResponse(
+            UnsupportedResponse(serial));
+}
+
+Return<void> Radio::areUiccApplicationsEnabled(int32_t serial) {
+    MAYBE_WRAP_V1_5_CALL(areUiccApplicationsEnabled, serial);
+    return mRadioResponse->mRealRadioResponse->areUiccApplicationsEnabledResponse(
+            UnsupportedResponse(serial), false);
+}
+
+Return<void> Radio::setSystemSelectionChannels_1_5(
+        int32_t serial, bool specifyChannels,
+        const hidl_vec<V1_5::RadioAccessSpecifier>& specifiers) {
+    MAYBE_WRAP_V1_5_CALL(setSystemSelectionChannels_1_5, serial, specifyChannels, specifiers);
+    return mRadioResponse->mRealRadioResponse->setSystemSelectionChannelsResponse_1_5(
+            UnsupportedResponse(serial));
+}
+
+Return<void> Radio::startNetworkScan_1_5(int32_t serial, const V1_5::NetworkScanRequest& request) {
+    MAYBE_WRAP_V1_5_CALL(startNetworkScan_1_5, serial, request);
+    return mRadioResponse->mRealRadioResponse->startNetworkScanResponse_1_5(
+            UnsupportedResponse(serial));
+}
+
+Return<void> Radio::setupDataCall_1_5(int32_t serial, V1_5::AccessNetwork accessNetwork,
+                                      const V1_5::DataProfileInfo& dataProfileInfo,
+                                      bool roamingAllowed, V1_2::DataRequestReason reason,
+                                      const hidl_vec<V1_5::LinkAddress>& addresses,
+                                      const hidl_vec<hidl_string>& dnses) {
+    MAYBE_WRAP_V1_5_CALL(setupDataCall_1_5, serial, accessNetwork, dataProfileInfo, roamingAllowed,
+                         reason, addresses, dnses);
+    return mRadioResponse->mRealRadioResponse->setupDataCallResponse_1_5(
+            UnsupportedResponse(serial), {});
+}
+
+Return<void> Radio::setInitialAttachApn_1_5(int32_t serial,
+                                            const V1_5::DataProfileInfo& dataProfileInfo) {
+    MAYBE_WRAP_V1_5_CALL(setInitialAttachApn_1_5, serial, dataProfileInfo);
+    return mRadioResponse->mRealRadioResponse->setInitialAttachApnResponse_1_5(
+            UnsupportedResponse(serial));
+}
+
+Return<void> Radio::setDataProfile_1_5(int32_t serial,
+                                       const hidl_vec<V1_5::DataProfileInfo>& profiles) {
+    MAYBE_WRAP_V1_5_CALL(setDataProfile_1_5, serial, profiles);
+    return mRadioResponse->mRealRadioResponse->setDataProfileResponse_1_5(
+            UnsupportedResponse(serial));
+}
+
+Return<void> Radio::setRadioPower_1_5(int32_t serial, bool powerOn, bool forEmergencyCall,
+                                      bool preferredForEmergencyCall) {
+    MAYBE_WRAP_V1_5_CALL(setRadioPower_1_5, serial, powerOn, forEmergencyCall,
+                         preferredForEmergencyCall);
+    return mRadioResponse->mRealRadioResponse->setRadioPowerResponse_1_5(
+            UnsupportedResponse(serial));
+}
+
+Return<void> Radio::setIndicationFilter_1_5(
+        int32_t serial, hidl_bitfield<V1_5::IndicationFilter> indicationFilter) {
+    MAYBE_WRAP_V1_5_CALL(setIndicationFilter_1_5, serial, indicationFilter);
+    return mRadioResponse->mRealRadioResponse->setIndicationFilterResponse_1_5(
+            UnsupportedResponse(serial));
+}
+
+Return<void> Radio::getBarringInfo(int32_t serial) {
+    MAYBE_WRAP_V1_5_CALL(getBarringInfo, serial);
+    return mRadioResponse->mRealRadioResponse->getBarringInfoResponse(UnsupportedResponse(serial),
+                                                                      {}, {});
+}
+
+Return<void> Radio::getVoiceRegistrationState_1_5(int32_t serial) {
+    MAYBE_WRAP_V1_5_CALL(getVoiceRegistrationState_1_5, serial);
+    return mRadioResponse->mRealRadioResponse->getVoiceRegistrationStateResponse_1_5(
+            UnsupportedResponse(serial), {});
+}
+
+Return<void> Radio::getDataRegistrationState_1_5(int32_t serial) {
+    MAYBE_WRAP_V1_5_CALL(getDataRegistrationState_1_5, serial);
+    return mRadioResponse->mRealRadioResponse->getDataRegistrationStateResponse_1_5(
+            UnsupportedResponse(serial), {});
+}
+
+Return<void> Radio::setNetworkSelectionModeManual_1_5(int32_t serial,
+                                                      const hidl_string& operatorNumeric,
+                                                      V1_5::RadioAccessNetworks ran) {
+    MAYBE_WRAP_V1_5_CALL(setNetworkSelectionModeManual_1_5, serial, operatorNumeric, ran);
+    return mRadioResponse->mRealRadioResponse->setNetworkSelectionModeManualResponse_1_5(
+            UnsupportedResponse(serial));
+}
+
+Return<void> Radio::sendCdmaSmsExpectMore(int32_t serial, const V1_0::CdmaSmsMessage& sms) {
+    MAYBE_WRAP_V1_5_CALL(sendCdmaSmsExpectMore, serial, sms);
+    return mRadioResponse->mRealRadioResponse->sendCdmaSmsExpectMoreResponse(
+            UnsupportedResponse(serial), {});
+}
+
+Return<void> Radio::supplySimDepersonalization(int32_t serial, V1_5::PersoSubstate persoType,
+                                               const hidl_string& controlKey) {
+    MAYBE_WRAP_V1_5_CALL(supplySimDepersonalization, serial, persoType, controlKey);
+    return mRadioResponse->mRealRadioResponse->supplySimDepersonalizationResponse(
+            UnsupportedResponse(serial), persoType, -1);
+}
+
 sp<V1_1::IRadio> Radio::getRealRadio_V1_1() {
     return V1_1::IRadio::castFrom(mRealRadio).withDefault(nullptr);
 }
@@ -990,6 +1126,10 @@ sp<V1_3::IRadio> Radio::getRealRadio_V1_3() {
 
 sp<V1_4::IRadio> Radio::getRealRadio_V1_4() {
     return V1_4::IRadio::castFrom(mRealRadio).withDefault(nullptr);
+}
+
+sp<V1_5::IRadio> Radio::getRealRadio_V1_5() {
+    return V1_5::IRadio::castFrom(mRealRadio).withDefault(nullptr);
 }
 
 }  // namespace android::hardware::radio::implementation

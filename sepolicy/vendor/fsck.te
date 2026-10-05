@@ -1,0 +1,13 @@
+allow fsck { persdata_abt_block_device
+             power_block_device
+             sns_block_device
+             drm_block_device }:file rw_file_perms;
+
+allow fsck { persdata_abt_block_device
+             power_block_device
+             sns_block_device
+             drm_block_device }:blk_file rw_file_perms;
+
+r_dir_file(fsck, sysfs_devices_block)
+
+allow fsck self:capability kill;
